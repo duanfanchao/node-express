@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const dayjs = require('dayjs');
+const customParseFormat = require('dayjs/plugin/customParseFormat');
+dayjs.extend(customParseFormat);
 
 // @desc    用户登录
 // @route   POST /api/auth/login
@@ -57,7 +60,7 @@ exports.registerUser = async (req, res) => {
         // 创建新用户
         const newUser = new User({ name: username, password });
         await newUser.save();
-        
+
         res.json({ code: 0, data: null, resultMsg: '注册成功' });
     } catch (error) {
         if (error.code === 11000) {
@@ -70,4 +73,49 @@ exports.registerUser = async (req, res) => {
         console.error('注册失败:', error);
         res.status(500).json({ error: '服务器错误' });
     }
+}
+
+// @desc    获取用户信息
+// @route   GET /api/auth/userinfo
+exports.getUserInfo = async (req, res) => {
+    const { username, password, startDate, endDate } = req.query;
+    // 日期校验
+    const dateFormat = 'YYYY-MM-DD HH:mm:ss';
+    if (startDate && !dayjs(startDate, dateFormat).isValid()) {
+        return res.status(400).json({ code: 1, data: null, resultMsg: '开始日期格式无效' });
+    }
+
+    if (endDate && !dayjs(endDate, dateFormat).isValid()) {
+        return res.status(400).json({ code: 1, data: null, resultMsg: '结束日期格式无效' });
+    }
+
+    try {
+        // 参数
+        let query = {};
+        // 只有传了字段才加入查询条件
+        if (username) query.name = username;
+        if (password) query.password = password;
+        if (startDate) {
+            query.createdAt = { $gte: dayjs(startDate).startOf('day').toDate() };
+        }
+        if (endDate) {
+            query.createdAt = { ...query.createdAt, $lte: dayjs(endDate).endOf('day').toDate() };
+        }
+
+        const userData = await User.find(query);
+        const formattedUsers = userData.map(user => {
+            return {
+                id: user._id.toString(), // 将 ObjectId 转为字符串
+                name: user.name,
+                password: user.password,
+                hashPassword: user.hashPassword,
+                createdAt: dayjs(user.createdAt).format('YYYY-MM-DD HH:mm:ss'),
+            };
+        });
+        res.json({ code: 0, data: { list: formattedUsers, total: formattedUsers.length }, resultMsg: '获取用户信息成功' });
+    } catch (error) {
+        console.error('获取用户信息失败:', error);
+        res.status(500).json({ error: '服务器错误' });
+    }
+
 }
