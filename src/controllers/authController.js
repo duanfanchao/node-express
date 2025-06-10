@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const dayjs = require('dayjs');
+const { generateToken } = require('../utils/jwt');
 const customParseFormat = require('dayjs/plugin/customParseFormat');
 dayjs.extend(customParseFormat);
 
@@ -27,17 +28,13 @@ exports.loginUser = async (req, res) => {
         }
 
         // 4. 生成 JWT Token
-        const token = jwt.sign(
-            { id: user._id, name: user.username },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
+        const token = generateToken({ id: user._id, name: user.username });
 
         // 5. 返回 Token
         res.json({ code: 0, data: token, resultMsg: '登录成功' });
     } catch (error) {
         console.error('登录失败:', error);
-        res.status(500).json({ error: '服务器错误' });
+        res.status(500).json({ code: 1, data: null, resultMsg: '服务器错误' });
     }
 }
 
