@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const authRoutes = require('./routes/authRoutes');
+const organizationTreeRoutes = require('./routes/organizationTreeRoutes');
 const connectDB = require('./db/connect');
 
 const app = express();
@@ -29,6 +30,7 @@ connectDB();
 
 // API路由
 app.use(`${process.env.BASE_API}/auth`, authRoutes);
+app.use(`${process.env.BASE_API}/organizationTree`, organizationTreeRoutes);
 
 // 404处理
 app.use((req, res, next) => {

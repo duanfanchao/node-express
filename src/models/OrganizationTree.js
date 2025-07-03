@@ -14,7 +14,11 @@ const organizationTreeSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-    }
+    },
+    level: { type: Number, required: true },
+    organizationTree: { type: Array, default: [] }
+}, {
+    timestamps: true, // 自动添加 createdAt 和 updatedAt
 });
 
-module.exports = mongoose.model('OrganizationTree', organizationTreeSchema);
+module.exports = mongoose.model('organizationTree', organizationTreeSchema, 'organizationtree');
