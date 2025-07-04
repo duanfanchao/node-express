@@ -81,7 +81,6 @@ exports.getUserInfo = async (req, res) => {
     if (startDate && !dayjs(startDate, dateFormat).isValid()) {
         return res.status(400).json({ code: 1, data: null, resultMsg: '开始日期格式无效' });
     }
-
     if (endDate && !dayjs(endDate, dateFormat).isValid()) {
         return res.status(400).json({ code: 1, data: null, resultMsg: '结束日期格式无效' });
     }
