@@ -9,11 +9,19 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true
+        required: true,
     },
     hashPassword: {
         type: String,
         required: false
+    },
+    departmentId: {
+        type: String,
+        required: false,
+    },
+    departmentName: {
+        type: String,
+        required: false,
     },
     createdAt: {
         type: Date,

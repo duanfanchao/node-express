@@ -75,7 +75,7 @@ exports.registerUser = async (req, res) => {
 // @desc    获取用户信息
 // @route   GET /api/auth/userinfo
 exports.getUserInfo = async (req, res) => {
-    const { username, password, startDate, endDate, pageSize = 10, pageIndex = 1 } = req.query;
+    const { username, departmentName, startDate, endDate, pageSize = 10, pageIndex = 1 } = req.query;
     // 日期校验
     const dateFormat = 'YYYY-MM-DD HH:mm:ss';
     if (startDate && !dayjs(startDate, dateFormat).isValid()) {
@@ -97,7 +97,7 @@ exports.getUserInfo = async (req, res) => {
         let query = {};
         // 只有传了字段才加入查询条件
         if (username) query.name = username;
-        if (password) query.password = password;
+        if (departmentName) query.departmentName = departmentName;
         if (startDate) {
             query.createdAt = { $gte: dayjs(startDate).startOf('day').toDate() };
         }
@@ -111,16 +111,21 @@ exports.getUserInfo = async (req, res) => {
         const [total, userData] = await Promise.all([
             User.countDocuments(query), // 获取符合条件的总条数
             User.find(query)
+                .sort({ createdAt: -1 })
                 .skip(skip)            // 跳过前面的记录
                 .limit(limit)          // 限制返回数量
         ]);
         const formattedUsers = userData.map(user => {
+            // 如果是Mongoose文档，先转换为普通对象
+            const userObj = user.toObject ? user.toObject() : user;
             return {
-                id: user._id.toString(), // 将 ObjectId 转为字符串
-                name: user.name,
-                password: user.password,
-                hashPassword: user.hashPassword,
-                createdAt: dayjs(user.createdAt).format('YYYY-MM-DD HH:mm:ss'),
+                id: userObj._id.toString(), // 将 ObjectId 转为字符串
+                name: userObj.name,
+                password: userObj.password,
+                departmentName: userObj.departmentName,
+                departmentId: userObj.departmentId,
+                hashPassword: userObj.hashPassword,
+                createdAt: dayjs(userObj.createdAt).format('YYYY-MM-DD HH:mm:ss'),
             };
         });
         res.json({ code: 0, data: { list: formattedUsers, total }, resultMsg: '获取用户信息成功' });
@@ -133,16 +138,16 @@ exports.getUserInfo = async (req, res) => {
 // @desc    新增用户
 // @route   POST /api/auth/addUser
 exports.newAddUser = async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.status(200).json({ code: 1, data: null, resultMsg: '用户名和密码不能为空' });
+    const { username, password, departmentId, departmentName } = req.body;
+    if (!username || !password || !departmentId) {
+        return res.status(200).json({ code: 1, data: null, resultMsg: '用户名、密码和部门不能为空' });
     }
     try {
         const user = await User.findOne({ username });
         if (user) {
             return res.status(200).json({ code: 1, data: null, resultMsg: '用户已存在，请更改用户名' });
         }
-        const newUser = new User({ name: username, password });
+        const newUser = new User({ name: username, password, departmentId, departmentName });
         await newUser.save();
         res.json({ code: 0, data: null, resultMsg: '新增成功' });
     } catch (error) {
@@ -161,7 +166,7 @@ exports.newAddUser = async (req, res) => {
 // @desc    编辑用户
 // @route   POST /api/auth/editUser
 exports.editUser = async (req, res) => {
-    const { id, username, password } = req.body;
+    const { id, username, password, departmentId, departmentName } = req.body;
     if (!id) {
         return res.status(400).json({
             code: 1,
@@ -180,6 +185,12 @@ exports.editUser = async (req, res) => {
             resultMsg: '密码不能为空'
         });
     }
+    if (!departmentId) {
+        return res.status(200).json({
+            code: 1,
+            resultMsg: '部门ID不能为空'
+        });
+    }
     try {
         // 检查用户是否存在
         const existingUser = await User.findById(id);
@@ -194,6 +205,8 @@ exports.editUser = async (req, res) => {
         // 更新用户信息
         existingUser.name = username;
         existingUser.password = password;
+        existingUser.departmentId = departmentId;
+        existingUser.departmentName = departmentName;
         await existingUser.save();
         res.status(200).json({ code: 0, data: null, resultMsg: '编辑成功' });
     } catch (error) {
