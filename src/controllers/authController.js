@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const dayjs = require('dayjs');
-const { generateToken } = require('../utils/jwt');
+const { generateToken, generateRefreshToken } = require('../utils/jwt');
 const customParseFormat = require('dayjs/plugin/customParseFormat');
 dayjs.extend(customParseFormat);
 
@@ -15,6 +15,7 @@ exports.loginUser = async (req, res) => {
     }
 
     try {
+
         // 2. 查询用户
         const user = await User.findOne({ name: username });
         if (!user) {
@@ -28,13 +29,52 @@ exports.loginUser = async (req, res) => {
         }
 
         // 4. 生成 JWT Token
-        const token = generateToken({ id: user._id, name: user.username });
+        // const token = generateToken({ id: user._id, name: user.username });
+        // 生成双Token
+        const accessToken = generateToken({ id: user._id });
+        const refreshToken = generateRefreshToken({ id: user._id });
+        // 存储refreshToken到数据库
+        user.refreshToken = refreshToken;
+        await user.save();
 
         // 5. 返回 Token
-        res.json({ code: 0, data: token, resultMsg: '登录成功' });
+        res.json({
+            code: 0, data: {
+                accessToken,
+                refreshToken
+            }, resultMsg: '登录成功'
+        });
     } catch (error) {
         console.error('登录失败:', error);
         res.status(500).json({ code: 1, data: null, resultMsg: '服务器错误' });
+    }
+}
+
+exports.refreshToken = async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+        return res.status(200).json({ code: 1, resultMsg: '缺少refreshToken' });
+    }
+    try {
+        // 验证refreshToken
+        const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET + '_REFRESH');
+        // 检查数据库中的refreshToken是否匹配
+        const user = await User.findById(decoded.id);
+        if (!user || user.refreshToken !== refreshToken) {
+            return res.status(200).json({ code: 1, resultMsg: '无效的refreshToken' });
+        }
+        // 生成新的accessToken
+        const newAccessToken = generateToken({ id: user._id });
+        res.json({
+            code: 0,
+            data: newAccessToken,
+            resultMsg: 'Token刷新成功'
+        });
+    } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(200).json({ code: 1, resultMsg: 'refreshToken已过期，请重新登录' });
+        }
+        res.status(500).json({ code: 1, resultMsg: '服务器错误' });
     }
 }
 

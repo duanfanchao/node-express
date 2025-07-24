@@ -6,7 +6,7 @@ exports.authMiddleware = (req, res, next) => {
     if (!token) {
         return res.status(401).json({ code: 401, data: null, resultMsg: '未提供token' });
     }
-
+    
     try {
         const decoded = verifyToken(token);
         req.user = decoded; // 将解码后的用户信息附加到请求对象
